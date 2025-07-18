@@ -1,0 +1,42 @@
+/* src/Legend.css */
+.legend-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    z-index: 50;
+    backdrop-filter: blur(5px);
+    border: 1px solid var(--card-border);
+}
+
+.legend-container h4 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.legend-item:last-child {
+    margin-bottom: 0;
+}
+
+.legend-color-box {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    border: 1px solid #999;
+    border-radius: 4px;
+}
+
+.legend-label {
+    font-size: 14px;
+}

@@ -1,0 +1,24 @@
+/* src/EditToggle.css */
+.edit-toggle-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #ffc107;
+    background-color: #fff;
+    color: #212529;
+    border-radius: 8px;
+    transition: all 0.2s ease-in-out;
+}
+
+.edit-toggle-button:hover {
+    background-color: #ffc107;
+    color: #000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+}
+
+.edit-toggle-button.edit-mode-active {
+    background-color: #ffc107;
+    color: #000;
+}
