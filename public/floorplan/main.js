@@ -7,7 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let allUnits = [];
     let lastSelected = null;
     let originalData = null;
-    let isPopupVisible = false; // Флаг для блокировки навигации
+    let isPopupVisible = false;
+
+    const appOrigin = window.location.origin;
 
     const STROKE_DEFAULT = '#333';
     const STROKE_WIDTH_DEFAULT = 1;
@@ -89,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 legend: { usedUnitTypes: Array.from(usedUnitTypes), colors: defaultColors },
                 structure: data
             } 
-        }, '*');
+        }, appOrigin);
 
         return layout;
     }
@@ -127,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastSelected = group;
         const unitData = allUnits.find(unit => unit.id === group.id());
         if (unitData) {
-            window.parent.postMessage({ type: 'UNIT_CLICK', payload: { unit: unitData } }, '*');
+            window.parent.postMessage({ type: 'UNIT_CLICK', payload: { unit: unitData } }, appOrigin);
         }
     }
 
@@ -147,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const group = e.target.getParent();
             if (!group || e.target.name() !== 'unit-rect') {
                 deselectAll();
-                window.parent.postMessage({ type: 'STAGE_CLICK' }, '*');
+                window.parent.postMessage({ type: 'STAGE_CLICK' }, appOrigin);
                 return;
             }
             selectUnit(group);
@@ -159,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  const unitData = allUnits.find(unit => unit.id === group.id());
                  if (unitData) {
                     const unitPos = group.getAbsolutePosition();
-                    window.parent.postMessage({ type: 'UNIT_DBL_CLICK', payload: { unit: unitData, position: unitPos } }, '*');
+                    window.parent.postMessage({ type: 'UNIT_DBL_CLICK', payload: { unit: unitData, position: unitPos } }, appOrigin);
                  }
             }
         });
@@ -173,19 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
             const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
             if (newScale < 0.05 || newScale > 10) return;
-            stage.scale({ x: newScale, y: newScale });
-            const newPos = { x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale };
-            stage.position(newPos);
+            
+            stage.to({
+                scaleX: newScale,
+                scaleY: newScale,
+                x: pointer.x - mousePointTo.x * newScale,
+                y: pointer.y - mousePointTo.y * newScale,
+                duration: 0.1,
+                easing: Konva.Easings.EaseOut,
+            });
         });
     }
 
-    // --- Keyboard Navigation ---
     window.addEventListener('keydown', (e) => {
         if (isPopupVisible || !lastSelected) return;
-
         const currentUnit = allUnits.find(u => u.id === lastSelected.id());
         if (!currentUnit) return;
-
         let nextUnit;
         const unitsByY = allUnits.reduce((acc, u) => {
             acc[u.y] = (acc[u.y] || []).sort((a, b) => a.x - b.x);
@@ -196,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentFloorY = currentUnit.y;
         const currentFloorUnits = unitsByY[currentFloorY];
         const currentIndexOnFloor = currentFloorUnits.findIndex(u => u.id === currentUnit.id);
-
         switch (e.key) {
             case 'ArrowLeft':
                 if (currentIndexOnFloor > 0) nextUnit = currentFloorUnits[currentIndexOnFloor - 1];
@@ -211,14 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (nextFloorIndex >= 0 && nextFloorIndex < floorsY.length) {
                     const nextFloorY = floorsY[nextFloorIndex];
                     const nextFloorUnits = unitsByY[nextFloorY];
-                    // Find unit with closest X coordinate
-                    nextUnit = nextFloorUnits.reduce((prev, curr) => 
-                        Math.abs(curr.x - currentUnit.x) < Math.abs(prev.x - currentUnit.x) ? curr : prev
-                    );
+                    nextUnit = nextFloorUnits.reduce((prev, curr) => Math.abs(curr.x - currentUnit.x) < Math.abs(prev.x - currentUnit.x) ? curr : prev);
                 }
                 break;
         }
-
         if (nextUnit) {
             e.preventDefault();
             const nextGroup = stage.findOne(`#${nextUnit.id}`);
@@ -226,15 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Message Listener ---
     window.addEventListener('message', (event) => {
+        if (event.origin !== appOrigin) return;
         const { type, payload } = event.data;
         switch (type) {
             case 'LOAD_DATA':
-                if (payload) {
-                    originalData = payload; // Сначала присваиваем данные
-                    redrawAll(); // Затем перерисовываем
-                }
+                if (payload) { originalData = payload; redrawAll(); }
                 break;
             case 'RESET_VIEW':
                 stage.position({ x: 0, y: 0 }); stage.scale({ x: 1, y: 1 });
@@ -265,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  redrawAll();
                 break;
             case 'GET_DATA_AS_JSON':
-                window.parent.postMessage({ type: 'UPDATED_DATA_JSON', payload: reconstructJSON() }, '*');
+                window.parent.postMessage({ type: 'UPDATED_DATA_JSON', payload: reconstructJSON() }, appOrigin);
                 break;
         }
     });

@@ -26,6 +26,8 @@ function App() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
+    const appOrigin = window.location.origin;
+
     // 1. Загрузка данных
     useEffect(() => {
         const fetchData = async () => {
@@ -46,13 +48,12 @@ function App() {
 
     // 2. Функции для отправки команд в iframe
     const postMessageToIframe = useCallback((message: object) => {
-        iframeRef.current?.contentWindow?.postMessage(message, '*');
-    }, []);
+        iframeRef.current?.contentWindow?.postMessage(message, appOrigin);
+    }, [appOrigin]);
 
     // 3. Обработчики
     const handleClosePopup = useCallback(() => {
-        setPopupPosition(null); // Закрываем попап
-        // selectedUnit не сбрасываем, чтобы выделение осталось
+        setPopupPosition(null);
     }, []);
 
     const handleDeselectAll = useCallback(() => {
@@ -64,6 +65,10 @@ function App() {
     // 4. Прослушивание сообщений от iframe
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
+            if (event.origin !== appOrigin) {
+                console.warn(`Ignored message from unknown origin: ${event.origin}`);
+                return;
+            }
             const { type, payload } = event.data;
             switch (type) {
                 case 'UNIT_CLICK':
@@ -89,7 +94,7 @@ function App() {
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [handleDeselectAll]);
+    }, [appOrigin, handleDeselectAll]);
 
     // 5. Управление видимостью попапа для блокировки навигации в iframe
     useEffect(() => {
