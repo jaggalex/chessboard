@@ -49,9 +49,15 @@ function App() {
         iframeRef.current?.contentWindow?.postMessage(message, '*');
     }, []);
 
-    // 3. Обработчик закрытия попапа
+    // 3. Обработчики
     const handleClosePopup = useCallback(() => {
+        setPopupPosition(null); // Закрываем попап
+        // selectedUnit не сбрасываем, чтобы выделение осталось
+    }, []);
+
+    const handleDeselectAll = useCallback(() => {
         setSelectedUnit(null);
+        setPopupPosition(null);
         postMessageToIframe({ type: 'DESELECT_ALL' });
     }, [postMessageToIframe]);
 
@@ -59,23 +65,37 @@ function App() {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const { type, payload } = event.data;
-            if (type === 'UNIT_CLICK') {
-                setSelectedUnit(payload.unit);
-                setPopupPosition(payload.position);
-            } else if (type === 'STAGE_CLICK') {
-                handleClosePopup(); // Используем наш централизованный обработчик
-            } else if (type === 'DATA_PROCESSED') {
-                setLegendData(payload.legend);
-                setStructureData(payload.structure);
-            } else if (type === 'UPDATED_DATA_JSON') {
-                console.log("Получен обновленный JSON из iframe:", payload);
-                alert("Обновленный JSON выведен в консоль!");
+            switch (type) {
+                case 'UNIT_CLICK':
+                    setSelectedUnit(payload.unit);
+                    break;
+                case 'UNIT_DBL_CLICK':
+                    setSelectedUnit(payload.unit);
+                    setPopupPosition(payload.position);
+                    break;
+                case 'STAGE_CLICK':
+                    handleDeselectAll();
+                    break;
+                case 'DATA_PROCESSED':
+                    setLegendData(payload.legend);
+                    setStructureData(payload.structure);
+                    break;
+                case 'UPDATED_DATA_JSON':
+                    console.log("Получен обновленный JSON из iframe:", payload);
+                    alert("Обновленный JSON выведен в консоль!");
+                    break;
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [handleClosePopup]); // Добавляем зависимость
+    }, [handleDeselectAll]);
+
+    // 5. Управление видимостью попапа для блокировки навигации в iframe
+    useEffect(() => {
+        postMessageToIframe({ type: 'SET_POPUP_VISIBILITY', payload: { isVisible: popupPosition !== null } });
+    }, [popupPosition, postMessageToIframe]);
+
 
     const handleResetView = () => postMessageToIframe({ type: 'RESET_VIEW' });
 
@@ -93,14 +113,14 @@ function App() {
         if (selectedUnit) {
             if (window.confirm(`Вы уверены, что хотите удалить помещение №${selectedUnit.label}?`)) {
                 postMessageToIframe({ type: 'DELETE_UNIT', payload: { id: selectedUnit.id } });
-                handleClosePopup();
+                handleDeselectAll();
             }
         }
-    }, [selectedUnit, postMessageToIframe, handleClosePopup]);
+    }, [selectedUnit, postMessageToIframe, handleDeselectAll]);
 
     const toggleEditMode = () => {
         setIsEditMode(prev => !prev);
-        if (isEditMode) handleClosePopup();
+        if (isEditMode) handleDeselectAll();
     };
 
     return (

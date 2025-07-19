@@ -1,5 +1,5 @@
 // src/FloorPlan.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import type { MapData } from './types';
 
 interface FloorPlanProps {

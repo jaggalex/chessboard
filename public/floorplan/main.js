@@ -231,7 +231,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const { type, payload } = event.data;
         switch (type) {
             case 'LOAD_DATA':
-                if (payload) redrawAll(payload);
+                if (payload) {
+                    originalData = payload; // Сначала присваиваем данные
+                    redrawAll(); // Затем перерисовываем
+                }
                 break;
             case 'RESET_VIEW':
                 stage.position({ x: 0, y: 0 }); stage.scale({ x: 1, y: 1 });
