@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastSelected = null;
     let originalData = null;
     let isPopupVisible = false;
+    let zoomTween; // Объявляем здесь
 
     const appOrigin = window.location.origin;
 
@@ -168,6 +169,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         stage.on('wheel', (e) => {
             e.evt.preventDefault();
+            
+            // Останавливаем предыдущую анимацию, если она есть
+            if (zoomTween) {
+                zoomTween.finish();
+            }
+
             const scaleBy = 1.1;
             const oldScale = stage.scaleX();
             const pointer = stage.getPointerPosition();
@@ -176,14 +183,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
             if (newScale < 0.05 || newScale > 10) return;
             
-            stage.to({
+            zoomTween = new Konva.Tween({
+                node: stage,
                 scaleX: newScale,
                 scaleY: newScale,
                 x: pointer.x - mousePointTo.x * newScale,
                 y: pointer.y - mousePointTo.y * newScale,
-                duration: 0.1,
+                duration: 0.2,
                 easing: Konva.Easings.EaseOut,
             });
+            
+            zoomTween.play();
         });
     }
 

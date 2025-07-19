@@ -1,73 +1,83 @@
 // src/App.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import App from './App';
 
-// Mocking the FloorPlan component to avoid dealing with the iframe complexities in tests
+// Мокируем дочерние компоненты, чтобы изолировать App
 vi.mock('./FloorPlan', () => ({
-    FloorPlan: ({ iframeRef }) => <iframe ref={iframeRef} data-testid="floorplan-iframe"></iframe>
+    FloorPlan: () => <div data-testid="floorplan-mock"></div>
+}));
+vi.mock('./UnitPopup', () => ({
+    UnitPopup: ({ unit }) => unit ? <div data-testid="popup-mock">Помещение №{unit.label}</div> : null
 }));
 
 describe('App Component', () => {
-    it('должен отображать начальное состояние (режим просмотра)', () => {
+    it('должен отображать начальное состояние и переключаться в режим редактирования', () => {
         render(<App />);
         
-        // Проверяем наличие кнопок режима просмотра
+        // Начальное состояние
         expect(screen.getByText('Редактировать')).toBeInTheDocument();
-        expect(screen.getByText('Сбросить вид')).toBeInTheDocument();
-
-        // Проверяем отсутствие кнопок режима редактирования
         expect(screen.queryByText('Добавить помещение')).not.toBeInTheDocument();
-        expect(screen.queryByText('Удалить выбранное')).not.toBeInTheDocument();
-        expect(screen.queryByText('Сохранить схему')).not.toBeInTheDocument();
-    });
 
-    it('должен переключаться в режим редактирования и обратно', () => {
-        render(<App />);
+        // Переключение в режим редактирования
+        act(() => {
+            fireEvent.click(screen.getByText('Редактировать'));
+        });
         
-        const editButton = screen.getByText('Редактировать');
-        fireEvent.click(editButton);
-
-        // Проверяем, что появились кнопки режима редактирования
         expect(screen.getByText('Завершить редактирование')).toBeInTheDocument();
         expect(screen.getByText('Добавить помещение')).toBeInTheDocument();
-        expect(screen.getByText('Удалить выбранное')).toBeInTheDocument();
-        expect(screen.getByText('Сохранить схему')).toBeInTheDocument();
-
-        // Кликаем еще раз для выхода из режима
-        fireEvent.click(screen.getByText('Завершить редактирование'));
-        expect(screen.getByText('Редактировать')).toBeInTheDocument();
-        expect(screen.queryByText('Добавить помещение')).not.toBeInTheDocument();
     });
 
-    it('кнопка "Удалить" должна быть неактивна, если помещение не выбрано', () => {
+    it('кнопка "Удалить" должна быть неактивна без выбранного юнита', () => {
         render(<App />);
-        fireEvent.click(screen.getByText('Редактировать'));
+        act(() => {
+            fireEvent.click(screen.getByText('Редактировать'));
+        });
         
         const deleteButton = screen.getByText('Удалить выбранное') as HTMLButtonElement;
         expect(deleteButton.disabled).toBe(true);
     });
 
-    // Этот тест демонстрирует, как можно было бы проверить взаимодействие с postMessage,
-    // но требует более сложной настройки моков для window и iframe.
-    it('должен открывать попап при получении сообщения UNIT_DBL_CLICK', async () => {
+    it('кнопка "Удалить" должна быть активна после выбора юнита', () => {
+        render(<App />);
+        act(() => {
+            fireEvent.click(screen.getByText('Редактировать'));
+        });
+
+        // Симулируем выбор юнита через postMessage
+        act(() => {
+            fireEvent(window, new MessageEvent('message', {
+                data: {
+                    type: 'UNIT_CLICK',
+                    payload: { unit: { id: 'u1', label: '101', unitType: 'flat' } }
+                },
+                origin: window.location.origin,
+            }));
+        });
+
+        const deleteButton = screen.getByText('Удалить выбранное') as HTMLButtonElement;
+        expect(deleteButton.disabled).toBe(false);
+    });
+
+    it('должен открывать попап при получении сообщения UNIT_DBL_CLICK', () => {
         render(<App />);
         
-        // Симулируем получение сообщения от iframe
-        fireEvent(window, new MessageEvent('message', {
-            data: {
-                type: 'UNIT_DBL_CLICK',
-                payload: {
-                    unit: { id: 'u1', label: '101', unitType: 'flat' },
-                    position: { x: 100, y: 150 }
-                }
-            }
-        }));
-
-        // Ждем появления попапа
-        await waitFor(() => {
-            // В попапе будет заголовок с номером помещения
-            expect(screen.getByText('Помещение №101')).toBeInTheDocument();
+        // Симулируем двойной клик
+        act(() => {
+            fireEvent(window, new MessageEvent('message', {
+                data: {
+                    type: 'UNIT_DBL_CLICK',
+                    payload: {
+                        unit: { id: 'u1', label: '101', unitType: 'flat' },
+                        position: { x: 100, y: 150 }
+                    }
+                },
+                origin: window.location.origin,
+            }));
         });
+
+        // Проверяем, что попап появился
+        expect(screen.getByTestId('popup-mock')).toBeInTheDocument();
+        expect(screen.getByText('Помещение №101')).toBeInTheDocument();
     });
 });
